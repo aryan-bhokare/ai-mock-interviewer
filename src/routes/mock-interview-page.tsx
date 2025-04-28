@@ -3,19 +3,24 @@ import { Interview } from "@/types";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { LoaderPage } from "./loader-page";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/config/firebase.config";
 import { CustomBreadCrumb } from "@/components/custom-bread-crumb";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Lightbulb } from "lucide-react";
 import { QuestionSection } from "@/components/question-section";
+import { Button } from "@/components/ui/button";
+import { Loader } from "lucide-react";
+import { toast } from "sonner";
+import { CheckCircle } from "lucide-react";
 
 export const MockInterviewPage = () => {
   const { interviewId } = useParams<{ interviewId: string }>();
   const [interview, setInterview] = useState<Interview | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
 
   const navigate = useNavigate();
 
@@ -42,6 +47,29 @@ export const MockInterviewPage = () => {
     fetchInterview();
   }, [interviewId, navigate]);
 
+  const handleCompleteInterview = async () => {
+    if (!interview || !interviewId) return;
+    
+    setIsCompleting(true);
+    try {
+      await updateDoc(doc(db, "interviews", interviewId), {
+        status: 'completed',
+        completedAt: serverTimestamp(),
+      });
+      
+      toast.success("Interview completed!", {
+        description: "You can view your feedback in the feedback section."
+      });
+      
+      navigate(`/generate/feedback/${interviewId}`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to complete interview");
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
   if (isLoading) {
     return <LoaderPage className="w-full h-[70vh]" />;
   }
@@ -56,16 +84,38 @@ export const MockInterviewPage = () => {
 
   return (
     <div className="flex flex-col w-full gap-8 py-5">
-      <CustomBreadCrumb
-        breadCrumbPage="Start"
-        breadCrumpItems={[
-          { label: "Mock Interviews", link: "/generate" },
-          {
-            label: interview?.position || "",
-            link: `/generate/interview/${interview?.id}`,
-          },
-        ]}
-      />
+      <div className="flex items-center justify-between">
+        <CustomBreadCrumb
+          breadCrumbPage="Start"
+          breadCrumpItems={[
+            { label: "Mock Interviews", link: "/generate" },
+            {
+              label: interview?.position || "",
+              link: `/generate/interview/${interview?.id}`,
+            },
+          ]}
+        />
+        
+        {interview?.status !== 'completed' && (
+          <Button 
+            onClick={handleCompleteInterview}
+            disabled={isCompleting}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {isCompleting ? (
+              <>
+                <Loader className="mr-2 h-4 w-4 animate-spin" />
+                Completing...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Complete Interview
+              </>
+            )}
+          </Button>
+        )}
+      </div>
 
       <div className="w-full">
         <Alert className="bg-sky-100 border border-sky-200 p-4 rounded-lg flex items-start gap-3">

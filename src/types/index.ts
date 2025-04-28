@@ -19,6 +19,8 @@ export interface Interview {
   questions: { question: string; answer: string }[];
   createdAt: Timestamp;
   updateAt: Timestamp;
+  status: 'in_progress' | 'completed';
+  completedAt?: Timestamp;
 }
 
 export interface UserAnswer {
@@ -32,4 +34,6 @@ export interface UserAnswer {
   userId: string;
   createdAt: Timestamp;
   updateAt: Timestamp;
+  attemptNumber: number;
+  timestamp: Timestamp;
 }
