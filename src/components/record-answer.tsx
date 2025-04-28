@@ -25,8 +25,6 @@ import {
   query,
   serverTimestamp,
   where,
-  orderBy,
-  limit,
 } from "firebase/firestore";
 import { db } from "@/config/firebase.config";
 
@@ -151,48 +149,52 @@ export const RecordAnswer = ({
       return;
     }
 
+    const currentQuestion = question.question;
     try {
-      const timestamp = serverTimestamp();
-      
-      // Get the latest attempt number for this interview
-      const attemptsQuery = query(
+      // query the firbase to check if the user answer already exists for this question
+
+      const userAnswerQuery = query(
         collection(db, "userAnswers"),
         where("userId", "==", userId),
-        where("mockIdRef", "==", interviewId),
-        orderBy("attemptNumber", "desc"),
-        limit(1)
+        where("question", "==", currentQuestion)
       );
-      
-      const latestAttempt = await getDocs(attemptsQuery);
-      const nextAttemptNumber = latestAttempt.empty ? 1 : (latestAttempt.docs[0].data().attemptNumber || 0) + 1;
 
-      await addDoc(collection(db, "userAnswers"), {
-        mockIdRef: interviewId,
-        question: question.question,
-        correct_ans: question.answer,
-        user_ans: userAnswer,
-        feedback: aiResult.feedback,
-        rating: aiResult.ratings,
-        userId,
-        createdAt: timestamp,
-        timestamp: timestamp,
-        attemptNumber: nextAttemptNumber
-      });
+      const querySnap = await getDocs(userAnswerQuery);
 
-      toast.success("Answer Saved", { 
-        description: "Your answer has been saved. You can try again to improve your score!" 
-      });
+      // if the user already answerd the question dont save it again
+      if (!querySnap.empty) {
+        console.log("Query Snap Size", querySnap.size);
+        toast.info("Already Answered", {
+          description: "You have already answered this question",
+        });
+        return;
+      } else {
+        // save the user answer
+
+        await addDoc(collection(db, "userAnswers"), {
+          mockIdRef: interviewId,
+          question: question.question,
+          correct_ans: question.answer,
+          user_ans: userAnswer,
+          feedback: aiResult.feedback,
+          rating: aiResult.ratings,
+          userId,
+          createdAt: serverTimestamp(),
+        });
+
+        toast("Saved", { description: "Your answer has been saved.." });
+      }
 
       setUserAnswer("");
       stopSpeechToText();
     } catch (error) {
-      console.error(error);
-      toast.error("Error", {
-        description: "An error occurred while saving your answer.",
+      toast("Error", {
+        description: "An error occurred while generating feedback.",
       });
+      console.log(error);
     } finally {
       setLoading(false);
-      setOpen(false);
+      setOpen(!open);
     }
   };
 
