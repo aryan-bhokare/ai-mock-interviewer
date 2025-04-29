@@ -16,8 +16,8 @@ export const SaveModal = ({
 }: SaveModalProps) => {
   return (
     <Modal
-      title="Are you sure?"
-      description="This action cannot be undone you can't edit or re-answer this question again!"
+      title="Save Answer?"
+      description="Do you want to save this answer? You can always try again to improve your score!"
       isOpen={isOpen}
       onClose={onClose}
     >
@@ -30,7 +30,7 @@ export const SaveModal = ({
           className="bg-emerald-600 hover:bg-emerald-800"
           onClick={onConfirm}
         >
-          Continue
+          Save Answer
         </Button>
       </div>
     </Modal>

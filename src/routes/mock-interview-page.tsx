@@ -31,9 +31,16 @@ export const MockInterviewPage = () => {
         try {
           const interviewDoc = await getDoc(doc(db, "interviews", interviewId));
           if (interviewDoc.exists()) {
+            const data = interviewDoc.data();
+            if (!data.currentAttempt) {
+              await updateDoc(doc(db, "interviews", interviewId), {
+                currentAttempt: 1
+              });
+              data.currentAttempt = 1;
+            }
             setInterview({
               id: interviewDoc.id,
-              ...interviewDoc.data(),
+              ...data,
             } as Interview);
           }
         } catch (error) {
@@ -55,6 +62,7 @@ export const MockInterviewPage = () => {
       await updateDoc(doc(db, "interviews", interviewId), {
         status: 'completed',
         completedAt: serverTimestamp(),
+        currentAttempt: (interview.currentAttempt || 1) + 1
       });
       
       toast.success("Interview completed!", {

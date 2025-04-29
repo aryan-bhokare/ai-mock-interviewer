@@ -21,6 +21,7 @@ export interface Interview {
   updateAt: Timestamp;
   status: 'in_progress' | 'completed';
   completedAt?: Timestamp;
+  currentAttempt?: number;
 }
 
 export interface UserAnswer {

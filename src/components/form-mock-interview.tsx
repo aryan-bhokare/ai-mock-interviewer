@@ -130,6 +130,7 @@ export const FormMockInterview = ({ initialData }: FormMockInterviewProps) => {
           await updateDoc(doc(db, "interviews", initialData?.id), {
             questions: aiResult,
             ...data,
+            status: initialData.status || 'in_progress',
             updatedAt: serverTimestamp(),
           }).catch((error) => console.log(error));
           toast(toastMessage.title, { description: toastMessage.description });
@@ -144,6 +145,8 @@ export const FormMockInterview = ({ initialData }: FormMockInterviewProps) => {
             userId,
             questions: aiResult,
             createdAt: serverTimestamp(),
+            status: 'in_progress',
+            updatedAt: serverTimestamp()
           });
 
           toast(toastMessage.title, { description: toastMessage.description });

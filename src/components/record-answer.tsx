@@ -25,6 +25,11 @@ import {
   query,
   serverTimestamp,
   where,
+  orderBy,
+  limit,
+  getDoc,
+  doc,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "@/config/firebase.config";
 
@@ -68,9 +73,9 @@ export const RecordAnswer = ({
     if (isRecording) {
       stopSpeechToText();
 
-      if (userAnswer?.length < 30) {
+      if (userAnswer?.length < 20) {
         toast.error("Error", {
-          description: "Your answer should be more than 30 characters",
+          description: "Your answer should be more than 20 characters",
         });
 
         return;
@@ -145,56 +150,69 @@ export const RecordAnswer = ({
   const saveUserAnswer = async () => {
     setLoading(true);
 
-    if (!aiResult) {
+    if (!aiResult || !interviewId) {
       return;
     }
 
-    const currentQuestion = question.question;
     try {
-      // query the firbase to check if the user answer already exists for this question
-
-      const userAnswerQuery = query(
-        collection(db, "userAnswers"),
-        where("userId", "==", userId),
-        where("question", "==", currentQuestion)
-      );
-
-      const querySnap = await getDocs(userAnswerQuery);
-
-      // if the user already answerd the question dont save it again
-      if (!querySnap.empty) {
-        console.log("Query Snap Size", querySnap.size);
-        toast.info("Already Answered", {
-          description: "You have already answered this question",
-        });
-        return;
-      } else {
-        // save the user answer
-
-        await addDoc(collection(db, "userAnswers"), {
-          mockIdRef: interviewId,
-          question: question.question,
-          correct_ans: question.answer,
-          user_ans: userAnswer,
-          feedback: aiResult.feedback,
-          rating: aiResult.ratings,
-          userId,
-          createdAt: serverTimestamp(),
-        });
-
-        toast("Saved", { description: "Your answer has been saved.." });
+      const timestamp = serverTimestamp();
+      
+      // Get the current interview to get its attempt number
+      const interviewRef = doc(db, "interviews", interviewId);
+      const interviewDoc = await getDoc(interviewRef);
+      if (!interviewDoc.exists()) {
+        throw new Error("Interview not found");
       }
+      let currentAttempt = interviewDoc.data().currentAttempt || 1;
+
+      // Check if an answer for this question already exists in the current attempt
+      const existingAnswerQuery = query(
+        collection(db, "userAnswers"),
+        where("mockIdRef", "==", interviewId),
+        where("userId", "==", userId),
+        where("question", "==", question.question),
+        where("attemptNumber", "==", currentAttempt)
+      );
+      
+      const existingAnswerSnapshot = await getDocs(existingAnswerQuery);
+      
+      // If an answer already exists for this question in current attempt, increment attempt number
+      if (!existingAnswerSnapshot.empty) {
+        currentAttempt += 1;
+        // Update the interview with the new attempt number
+        await updateDoc(interviewRef, {
+          currentAttempt: currentAttempt
+        });
+      }
+
+      // Save the answer with the appropriate attempt number
+      await addDoc(collection(db, "userAnswers"), {
+        mockIdRef: interviewId,
+        question: question.question,
+        correct_ans: question.answer,
+        user_ans: userAnswer,
+        feedback: aiResult.feedback,
+        rating: aiResult.ratings,
+        userId,
+        createdAt: timestamp,
+        timestamp: timestamp,
+        attemptNumber: currentAttempt
+      });
+
+      toast.success("Answer Saved", { 
+        description: "Your answer has been saved. You can try again to improve your score!" 
+      });
 
       setUserAnswer("");
       stopSpeechToText();
     } catch (error) {
-      toast("Error", {
-        description: "An error occurred while generating feedback.",
+      console.error(error);
+      toast.error("Error", {
+        description: "An error occurred while saving your answer.",
       });
-      console.log(error);
     } finally {
       setLoading(false);
-      setOpen(!open);
+      setOpen(false);
     }
   };
 

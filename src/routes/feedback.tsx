@@ -89,17 +89,31 @@ export const Feedback = () => {
             return { id: doc.id, ...doc.data() } as UserAnswer;
           });
 
-          // Group by attempt number
+          // Group by attempt number and question, keeping only the most recent answer for each question
           const groups = interviewData.reduce((acc, answer) => {
             const attemptKey = `Attempt ${answer.attemptNumber}`;
             if (!acc[attemptKey]) {
-              acc[attemptKey] = [];
+              acc[attemptKey] = new Map(); // Use Map to store unique questions
             }
-            acc[attemptKey].push(answer);
+            
+            // Update the answer for this question if it's more recent
+            const existingAnswer = acc[attemptKey].get(answer.question);
+            if (!existingAnswer || 
+                (answer.timestamp?.toDate()?.getTime() || 0) > 
+                (existingAnswer.timestamp?.toDate()?.getTime() || 0)) {
+              acc[attemptKey].set(answer.question, answer);
+            }
+            
+            return acc;
+          }, {} as { [key: string]: Map<string, UserAnswer> });
+
+          // Convert Maps to arrays
+          const finalGroups = Object.entries(groups).reduce((acc, [attempt, questionsMap]) => {
+            acc[attempt] = Array.from(questionsMap.values());
             return acc;
           }, {} as {[key: string]: UserAnswer[]});
 
-          setAttemptGroups(groups);
+          setAttemptGroups(finalGroups);
           setFeedbacks(interviewData);
         } catch (error) {
           console.log(error);
@@ -130,16 +144,19 @@ export const Feedback = () => {
   }, [feedbacks]);
 
   const performanceData = useMemo(() => {
-    return Object.entries(attemptGroups).map(([attempt, answers]) => {
-      const avgRating = answers.reduce((acc, curr) => acc + curr.rating, 0) / answers.length;
-      const timestamp = answers[0]?.timestamp?.toDate() || new Date();
-      
-      return {
-        attempt,
-        rating: Number(avgRating.toFixed(1)),
-        date: format(timestamp, 'MMM dd, yyyy')
-      };
-    });
+    return Object.entries(attemptGroups)
+      .map(([attempt, answers]) => {
+        const avgRating = answers.reduce((acc, curr) => acc + curr.rating, 0) / answers.length;
+        const timestamp = answers[0]?.timestamp?.toDate() || new Date();
+        
+        return {
+          attempt,
+          rating: Number(avgRating.toFixed(1)),
+          date: format(timestamp, 'MMM dd, yyyy'),
+          timestamp: timestamp.getTime() // Add timestamp for sorting
+        };
+      })
+      .sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp
   }, [attemptGroups]);
 
   if (isLoading) {
